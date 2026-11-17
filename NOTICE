@@ -1,0 +1,22 @@
+DVR Squirrel
+https://github.com/andras-tim/dvr-squirrel
+Licensed under the GNU General Public License, version 3 or later (GPL-3.0-or-later); see LICENSE.
+
+Embedded third-party software
+-----------------------------
+
+The linux/amd64 release binaries and the container image ghcr.io/andras-tim/dvr-squirrel (the tags without
+"-slim") embed FFmpeg 8.1.3 (https://ffmpeg.org/), a minimal static build used to decode the snapshot pictures.
+At startup the program writes it into a private directory and runs it as a separate executable.
+
+  License:  GNU Lesser General Public License, version 2.1 or later (LGPL-2.1-or-later), see LICENSE.ffmpeg
+            in the release archives (FFmpeg's COPYING.LGPLv2.1). The build uses neither --enable-gpl nor
+            --enable-nonfree.
+  Source:   ffmpeg-8.1.3.tar.xz, sha256 7138d28c96d9d3e3af4ee3d8cad72741f8ffb40da90c1112235dea3ecd3178a3,
+            signed by the FFmpeg release signing key; attached to every GitHub release of DVR Squirrel and
+            available from https://ffmpeg.org/releases/ffmpeg-8.1.3.tar.xz.
+  Build:    build/ffmpeg/Dockerfile and build/ffmpeg/configure-flags in this repository (`make ffmpeg`), also
+            attached to every release. You may build FFmpeg from the source yourself and use it instead, with
+            [snapshot] ffmpeg = "/path/to/ffmpeg".
+
+Binaries built without the embedded FFmpeg (`go install`, the "-slim" images) contain no FFmpeg code.

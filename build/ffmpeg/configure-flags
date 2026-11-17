@@ -1,0 +1,23 @@
+# FFmpeg ./configure flags of the embedded build, one per line. Only what a snapshot needs: the h264 demuxer,
+# parser and decoder, the scale filter for the pixel format, the MJPEG encoder and muxer, and the pipe protocol.
+--enable-static
+--disable-shared
+--extra-ldflags=-static
+--pkg-config-flags=--static
+--disable-everything
+--disable-autodetect
+--disable-network
+--disable-doc
+--disable-debug
+--disable-ffplay
+--disable-ffprobe
+--disable-avdevice
+--disable-swresample
+--enable-small
+--enable-protocol=pipe
+--enable-demuxer=h264
+--enable-parser=h264
+--enable-decoder=h264
+--enable-filter=scale
+--enable-encoder=mjpeg
+--enable-muxer=mjpeg
