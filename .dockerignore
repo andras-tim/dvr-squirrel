@@ -1,0 +1,4 @@
+.git
+bin
+*.toml
+!config.example.toml

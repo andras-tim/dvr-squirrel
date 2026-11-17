@@ -1,0 +1,185 @@
+# yaml-language-server: $schema=https://goreleaser.com/static/schema.json
+# Release pipeline, run through `make release` (tag v*) and `make snapshot` (local dry run).
+version: 2
+
+project_name: dvr-squirrel
+
+before:
+  hooks:
+    - go mod verify
+
+builds:
+  # The release binary, with the minimal FFmpeg embedded (make ffmpeg runs first, from the release target).
+  - id: dvr-squirrel
+    main: ./cmd/dvr-squirrel
+    binary: dvr-squirrel
+    env:
+      - CGO_ENABLED=0
+    flags:
+      - -trimpath
+    tags:
+      - embedffmpeg
+    ldflags:
+      - -s -w -X main.version={{ .Version }} -X main.commit={{ .FullCommit }} -X main.date={{ .CommitDate }}
+    mod_timestamp: "{{ .CommitTimestamp }}"
+    goos:
+      - linux
+    # amd64 only for now; to add arm64 or armv7, list them here and in the platforms of dockers_v2 below.
+    goarch:
+      - amd64
+    goarm:
+      - "7"
+  # Without FFmpeg, for the slim image.
+  - id: dvr-squirrel-slim
+    main: ./cmd/dvr-squirrel
+    binary: dvr-squirrel
+    env:
+      - CGO_ENABLED=0
+    flags:
+      - -trimpath
+    ldflags:
+      - -s -w -X main.version={{ .Version }} -X main.commit={{ .FullCommit }} -X main.date={{ .CommitDate }}
+    mod_timestamp: "{{ .CommitTimestamp }}"
+    goos:
+      - linux
+    goarch:
+      - amd64
+
+archives:
+  - id: default
+    ids: [dvr-squirrel]
+    formats: [tar.gz]
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}{{ with .Arm }}v{{ . }}{{ end }}"
+    # fixed owner and times, so the archives are reproducible
+    builds_info:
+      owner: root
+      group: root
+      mtime: "{{ .CommitDate }}"
+    files:
+      - src: LICENSE
+        info: &fileinfo
+          owner: root
+          group: root
+          mtime: "{{ .CommitDate }}"
+      - src: README.md
+        info: *fileinfo
+      - src: config.example.toml
+        info: *fileinfo
+      - src: deploy/dvr-squirrel.service
+        info: *fileinfo
+      - src: NOTICE
+        info: *fileinfo
+      - src: build/ffmpeg/out/COPYING.LGPLv2.1
+        dst: LICENSE.ffmpeg
+        info: *fileinfo
+
+checksum:
+  name_template: checksums.txt
+  algorithm: sha256
+  extra_files: &ffmpeg_sources
+    - glob: build/ffmpeg/ffmpeg-*.tar.xz
+    - glob: build/ffmpeg/Dockerfile
+      name_template: ffmpeg-build.Dockerfile
+    - glob: build/ffmpeg/configure-flags
+      name_template: ffmpeg-configure-flags.txt
+    - glob: NOTICE
+
+sboms:
+  - artifacts: archive
+
+# Keyless (Sigstore) signature of the checksums, which cover every archive; needs the workflow's id-token.
+signs:
+  - cmd: cosign
+    artifacts: checksum
+    signature: "${artifact}.sigstore.json"
+    args:
+      - sign-blob
+      - --bundle=${signature}
+      - ${artifact}
+      - --yes
+
+dockers_v2:
+  - id: full
+    ids: [dvr-squirrel]
+    dockerfile: Dockerfile
+    images:
+      - ghcr.io/andras-tim/dvr-squirrel
+    tags:
+      - "{{ .Version }}"
+      - "{{ if not .Prerelease }}latest{{ end }}"
+    platforms:
+      - linux/amd64
+    build_args:
+      BINARY_SOURCE: prebuilt
+    flags:
+      - --target=full
+    labels: &labels
+      org.opencontainers.image.title: "{{ .ProjectName }}"
+      org.opencontainers.image.description: Bridges legacy HiSilicon-based DVRs to ONVIF NVRs
+      org.opencontainers.image.url: https://github.com/andras-tim/dvr-squirrel
+      org.opencontainers.image.source: https://github.com/andras-tim/dvr-squirrel
+      org.opencontainers.image.version: "{{ .Version }}"
+      org.opencontainers.image.revision: "{{ .FullCommit }}"
+      org.opencontainers.image.created: "{{ .CommitDate }}"
+      org.opencontainers.image.licenses: GPL-3.0-or-later
+    annotations: *labels
+  - id: slim
+    ids: [dvr-squirrel-slim]
+    dockerfile: Dockerfile
+    images:
+      - ghcr.io/andras-tim/dvr-squirrel
+    tags:
+      - "{{ .Version }}-slim"
+      - "{{ if not .Prerelease }}slim{{ end }}"
+    platforms:
+      - linux/amd64
+    build_args:
+      BINARY_SOURCE: prebuilt
+    flags:
+      - --target=slim
+    labels: *labels
+    annotations: *labels
+
+docker_signs:
+  - cmd: cosign
+    artifacts: images
+    args:
+      - sign
+      - ${artifact}@${digest}
+      - --yes
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - "^Merge "
+
+release:
+  github:
+    owner: andras-tim
+    name: dvr-squirrel
+  prerelease: auto
+  # LGPL compliance of the embedded FFmpeg: its exact source and build recipe go with every release.
+  extra_files: *ffmpeg_sources
+  footer: |
+    ## Install
+
+    Download the archive for your platform and `checksums.txt`, then verify and unpack:
+
+    ```sh
+    sha256sum --ignore-missing -c checksums.txt
+    cosign verify-blob checksums.txt --bundle checksums.txt.sigstore.json \
+      --certificate-identity-regexp '^https://github.com/andras-tim/dvr-squirrel/\.github/workflows/release\.yml@refs/tags/v' \
+      --certificate-oidc-issuer https://token.actions.githubusercontent.com
+    gh attestation verify {{ .ProjectName }}_{{ .Version }}_linux_amd64.tar.gz --repo andras-tim/dvr-squirrel
+    ```
+
+    The binary embeds a minimal FFmpeg (LGPL-2.1-or-later) for the snapshot pictures; its source tarball and build
+    recipe are attached to this release, see NOTICE.
+
+    Container images (with the embedded FFmpeg, or `-slim` without it):
+
+    ```sh
+    docker pull ghcr.io/andras-tim/dvr-squirrel:{{ .Version }}
+    docker pull ghcr.io/andras-tim/dvr-squirrel:{{ .Version }}-slim
+    ```
