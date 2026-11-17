@@ -1,0 +1,19 @@
+/bin/
+/config.toml
+
+# Go tooling
+*.test
+*.out
+coverage.html
+coverage.txt
+coverage.xml
+*.coverprofile
+profile.cov
+go.work
+go.work.sum
+.env
+/dist/
+/build/ffmpeg/*.tar.xz
+/build/ffmpeg/*.part
+/build/ffmpeg/out/
+/internal/ffmpeg/bin/
