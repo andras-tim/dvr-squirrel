@@ -1,0 +1,87 @@
+# DVR Squirrel configuration, e.g. /etc/dvr-squirrel/config.toml. All values here are placeholders.
+#
+# The file is optional: DVR_HOST, DVR_USER and DVR_PASSWORD (or DVR_PASSWORD_FILE) are enough, and the channels,
+# their resolution and the DVR's type come from the DVR. Its main use is naming the cameras, as NVRs show them;
+# `dvr-squirrel generate-config` writes this part for your DVR.
+#
+# Precedence: command line flags, then the environment, then this file, then the defaults.
+
+[dvr]
+host = "dvr.example.lan"
+user = "viewer"
+password_file = "/etc/dvr-squirrel/dvr-password"
+
+[[channel]]
+index = 1
+name = "Front door"
+model = "Dome camera"
+
+[[channel]]
+index = 2
+name = "Yard"
+model = "Bullet camera"
+
+# ---------------------------------------------------------------------------------------------------------------
+# Every other option, with its default. With [[channel]] blocks, exactly those channels are bridged, from startup;
+# without any, every channel the DVR reports, once it has been reached.
+#
+# [dvr]
+# port = 8000                     # DVR_PORT
+# File paths may use ${VAR} (e.g. ${CREDENTIALS_DIRECTORY} under systemd); relative ones are taken from the
+# directory of this file.
+# password_file = "${CREDENTIALS_DIRECTORY}/dvr-password"
+# First reconnect delay; it doubles after each failed attempt, up to reconnect_max_seconds. The DVR is usually on
+# a LAN or VPN, so the cap is short: the bridge is back soon after the link is.
+# reconnect_seconds = 5
+# reconnect_max_seconds = 10
+# The DVR's HTTP port: device type detection and the settings pages of the web UI.
+# web_port = 80
+#
+# [web]
+# Status page (public) and the DVR's settings (log in with a DVR account, kept in memory for the session only).
+# enabled = true
+# listen = ":8090"
+#
+# [discovery]
+# WS-Discovery responder on UDP 3702 (multicast 239.255.255.250), so NVRs find the channels.
+# enabled = true
+# interface = ""                  # network interface for the multicast group; empty: the system default
+#
+# [snapshot]
+# GetSnapshotUri points to http://<address>:<onvif_port>/snapshot.jpg (digest or basic auth with the channel
+# credentials). FFmpeg decodes the latest IDR frame; when it is off, missing or fails, and while the channel is
+# offline, a placeholder picture is served.
+# enabled = true
+# Default: the FFmpeg embedded in the release binary, else "ffmpeg" from PATH; or "embedded", a name or a path.
+# ffmpeg = "/opt/ffmpeg/bin/ffmpeg"
+# cache_seconds = 5               # requests within this time share one decoded image
+#
+# [defaults]
+# Inherited by every channel; a [[channel]] block may override any of these keys.
+# enabled = true
+# audio = false                   # the DVR's single audio stream, added to the channel's RTSP stream
+# Address of the channel's ONVIF and RTSP endpoints; empty means all addresses. NVRs such as UniFi Protect tell
+# cameras apart by IP address, so give each channel its own (an IP alias or a macvlan interface each).
+# listen_ip = ""
+# Ports: 554 and 80 on a channel's own address; on a shared one, 8550+n and 8080+n for channel n.
+# rtsp_port = 554
+# onvif_port = 80
+# rtsp_path = "/stream"
+# ONVIF (WS-UsernameToken) and RTSP (digest) credentials; authentication is always on. Default: the DVR login.
+# user = "viewer"
+# password_file = "/etc/dvr-squirrel/viewer-password"
+# The camera model NVRs show; default: the DVR's type, e.g. "DVR 500 series, 4 channels".
+# model = "Dome camera"
+# serial = ""                     # default: derived from the DVR address and the channel index
+# firmware = "1.0"
+# While a channel has no video, its RTSP stream carries a filler picture once per second, so NVRs keep the camera
+# online; snapshots show the same picture. filler_image (PNG or JPEG, scaled to the channel resolution) replaces
+# the dark background; filler_text = false hides the text (name, "OFFLINE since HH:MM" and the reason).
+# filler_image = "/etc/dvr-squirrel/offline.png"
+# filler_text = true
+#
+# [[channel]]
+# index = 3
+# name = "CH3"                    # default: CH<n>
+# listen_ip = "192.0.2.13"
+# enabled = false
