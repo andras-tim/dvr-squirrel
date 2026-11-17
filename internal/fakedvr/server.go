@@ -116,6 +116,7 @@ func (s *Server) serve(c net.Conn) {
 
 	for _, f := range s.Frames {
 		if _, err := c.Write(f.Marshal()); err != nil {
+			<-done // a client that closes right after its logout fails this write; count the logout first
 			return
 		}
 		if s.Interval > 0 {
