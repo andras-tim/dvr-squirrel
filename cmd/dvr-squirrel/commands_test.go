@@ -137,7 +137,7 @@ func TestAutoChannels(t *testing.T) {
 	for i := 0; ; i++ {
 		var status int
 		status, body = soap(t, url, "viewer", "viewpw", `<GetScopes xmlns="http://www.onvif.org/ver10/device/wsdl"/>`)
-		if status == 200 && strings.Contains(body, "DVR%20500%20series%2C%202%20channels") {
+		if status == 200 && strings.Contains(body, "DVR%20500%20series,%202%20channels") {
 			break
 		}
 		if i == 300 {

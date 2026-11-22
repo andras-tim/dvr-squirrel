@@ -11,8 +11,8 @@ import (
 	"net"
 	"net/http"
 	"net/netip"
-	"net/url"
 	"strconv"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -106,9 +106,24 @@ func (d *Device) Scopes() []string {
 		"onvif://www.onvif.org/type/video_encoder",
 		"onvif://www.onvif.org/type/Network_Video_Transmitter",
 		"onvif://www.onvif.org/Profile/Streaming",
-		"onvif://www.onvif.org/name/" + url.PathEscape(d.CurrentModel()),
-		"onvif://www.onvif.org/hardware/" + url.PathEscape(d.CurrentModel()),
+		"onvif://www.onvif.org/name/" + scopeEscape(d.CurrentModel()),
+		"onvif://www.onvif.org/hardware/" + scopeEscape(d.CurrentModel()),
 	}
+}
+
+// scopeEscape percent-encodes what a scope's last path segment cannot hold (RFC 3986 pchar). Unlike url.PathEscape it
+// keeps the sub-delims: UniFi Protect shows a scope as is, so "a, b" would read "a%2C%20b" there with a %2C.
+func scopeEscape(s string) string {
+	const keep = "-._~!$&'()*+,;=:@"
+	var b strings.Builder
+	for _, c := range []byte(s) {
+		if 'a' <= c && c <= 'z' || 'A' <= c && c <= 'Z' || '0' <= c && c <= '9' || strings.IndexByte(keep, c) >= 0 {
+			b.WriteByte(c)
+		} else {
+			fmt.Fprintf(&b, "%%%02X", c)
+		}
+	}
+	return b.String()
 }
 
 // DeviceServiceURL is the XAddr for the given host (IP or IP:port-less name).

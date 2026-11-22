@@ -223,6 +223,19 @@ func TestStableIdentity(t *testing.T) {
 	}
 }
 
+func TestScopeEscape(t *testing.T) {
+	for in, want := range map[string]string{
+		"DVR 500 series, 4 channels": "DVR%20500%20series,%204%20channels",
+		"A/B?#%":                     "A%2FB%3F%23%25",
+		"Cam \u00e9":                 "Cam%20%C3%A9",
+		"x-._~!$&'()*+;=:@":          "x-._~!$&'()*+;=:@",
+	} {
+		if got := scopeEscape(in); got != want {
+			t.Errorf("scopeEscape(%q) = %q, want %q", in, got, want)
+		}
+	}
+}
+
 // TestNVRNameMapping pins what UniFi Protect was observed to show: the name is "<manufacturer> <model>" from
 // GetDeviceInformation, the model column is the name scope. The channel name must come out as the name and the
 // configured model as the model.
@@ -247,7 +260,7 @@ func TestNVRNameMapping(t *testing.T) {
 
 	// the detected model replaces the initial one everywhere
 	d.SetModel("DVR 500 series, 4 channels")
-	if sc := strings.Join(d.Scopes(), " "); !strings.Contains(sc, "name/DVR%20500%20series%2C%204%20channels") {
+	if sc := strings.Join(d.Scopes(), " "); !strings.Contains(sc, "name/DVR%20500%20series,%204%20channels") {
 		t.Fatalf("scopes after SetModel: %s", sc)
 	}
 }
