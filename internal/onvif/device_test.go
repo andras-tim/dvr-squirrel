@@ -9,6 +9,7 @@ import (
 	"encoding/xml"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"net/netip"
@@ -220,6 +221,15 @@ func TestStableIdentity(t *testing.T) {
 	}
 	if mac := a.MAC(); mac[0]&0x03 != 0x02 {
 		t.Fatalf("MAC %s is not locally administered unicast", mac)
+	}
+	// the interface's MAC replaces the derived one, so the NVR sees the same MAC as on the wire
+	a.HwAddr = net.HardwareAddr{0x02, 0x00, 0x5e, 0x00, 0x53, 0x01}
+	if a.MAC().String() != "02:00:5e:00:53:01" {
+		t.Fatalf("MAC %s, want the HwAddr", a.MAC())
+	}
+	_, body := call(t, a, digestToken("viewer", "pw", "mac-1", now), `<tds:GetNetworkInterfaces/>`)
+	if !strings.Contains(body, "<tt:HwAddress>02:00:5e:00:53:01</tt:HwAddress>") {
+		t.Fatalf("GetNetworkInterfaces: %s", body)
 	}
 }
 

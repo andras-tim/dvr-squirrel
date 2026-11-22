@@ -117,6 +117,8 @@ type Channel struct {
 	Model    string
 	Serial   string
 	Firmware string
+	// MAC is the configured mac; nil means the MAC of the listen_ip's interface, or one derived from the serial.
+	MAC net.HardwareAddr
 
 	// FillerImage is the decoded filler_image, nil for the generated background.
 	FillerImage     image.Image
@@ -160,6 +162,8 @@ type settings struct {
 type fileChannel struct {
 	Index int    `toml:"index"`
 	Name  string `toml:"name"`
+	// MAC is per channel only, never in [defaults]: it identifies one camera.
+	MAC string `toml:"mac"`
 	settings
 }
 
@@ -506,6 +510,17 @@ func parse(data []byte, baseDir string, o Options) (*Config, error) {
 		} else {
 			ch.Serial = defaultSerial(cfg.DVR.Addr(), ch.Index)
 		}
+		if fc.MAC != "" {
+			mac, err := net.ParseMAC(fc.MAC)
+			switch {
+			case err != nil || len(mac) != 6:
+				fail("%s: mac %q is not a 6-byte MAC address", where, fc.MAC)
+			case mac[0]&1 != 0 || slices.Equal(mac, make(net.HardwareAddr, 6)):
+				fail("%s: mac %q is not a unicast address", where, fc.MAC)
+			default:
+				ch.MAC = mac
+			}
+		}
 		if ip := *s.ListenIP; ip != "" {
 			a, err := netip.ParseAddr(ip)
 			if err != nil || !a.Is4() && !a.Is6() {
@@ -562,6 +577,7 @@ func parse(data []byte, baseDir string, o Options) (*Config, error) {
 			fail("no enabled channel")
 		}
 		errs = append(errs, checkEndpoints(cfg.Enabled())...)
+		errs = append(errs, checkMACs(cfg.Enabled())...)
 	}
 	if err := errors.Join(errs...); err != nil {
 		return nil, err
@@ -599,6 +615,23 @@ func checkEndpoints(chs []Channel) []error {
 				errs = append(errs, fmt.Errorf("%s and %s both listen on port %d of the same address", a.what, b.what, a.port))
 			}
 		}
+	}
+	return errs
+}
+
+// checkMACs rejects two channels with the same configured mac: NVRs would see one camera.
+func checkMACs(chs []Channel) []error {
+	var errs []error
+	seen := map[string]int{}
+	for _, ch := range chs {
+		if ch.MAC == nil {
+			continue
+		}
+		if other, ok := seen[ch.MAC.String()]; ok {
+			errs = append(errs, fmt.Errorf("channel %d and channel %d both have mac %s", other, ch.Index, ch.MAC))
+			continue
+		}
+		seen[ch.MAC.String()] = ch.Index
 	}
 	return errs
 }

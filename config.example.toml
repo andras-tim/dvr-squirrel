@@ -60,8 +60,8 @@ model = "Bullet camera"
 # Inherited by every channel; a [[channel]] block may override any of these keys.
 # enabled = true
 # audio = false                   # the DVR's single audio stream, added to the channel's RTSP stream
-# Address of the channel's ONVIF and RTSP endpoints; empty means all addresses. NVRs such as UniFi Protect tell
-# cameras apart by IP address, so give each channel its own (an IP alias or a macvlan interface each).
+# Address of the channel's ONVIF and RTSP endpoints; empty means all addresses. NVRs such as UniFi Protect key a
+# camera by its MAC address, so give each channel its own address on an interface of its own (a macvlan each).
 # listen_ip = ""
 # Ports: 554 and 80 on a channel's own address; on a shared one, 8550+n and 8080+n for channel n.
 # rtsp_port = 554
@@ -84,4 +84,7 @@ model = "Bullet camera"
 # index = 3
 # name = "CH3"                    # default: CH<n>
 # listen_ip = "192.0.2.13"
+# The MAC reported in GetNetworkInterfaces, per channel only. Default: the MAC of the interface holding listen_ip
+# (so NVRs see the same MAC there and on the wire), or one derived from the serial without a listen_ip.
+# mac = "02:00:5e:00:53:13"
 # enabled = false

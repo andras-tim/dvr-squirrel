@@ -52,6 +52,7 @@ index = 1
 listen_ip = "192.0.2.11"
 rtsp_port = 8554
 model = "Model Y"
+mac = "02-00-5E-00-53-01"
 
 [[channel]]
 index = 4
@@ -87,6 +88,9 @@ enabled = false
 	}
 	if c1.Serial == c2.Serial || !strings.HasSuffix(c2.Serial, "-CH2") {
 		t.Fatalf("serials %q %q", c1.Serial, c2.Serial)
+	}
+	if c1.MAC.String() != "02:00:5e:00:53:01" || c2.MAC != nil {
+		t.Fatalf("macs %v %v", c1.MAC, c2.MAC)
 	}
 	if !c1.FillerText || c1.FillerImage != nil {
 		t.Fatalf("filler defaults: %+v", c1)
@@ -124,18 +128,23 @@ func TestParseErrors(t *testing.T) {
 		conf string
 		want string
 	}{
-		"unknown key":  {base + "[[channel]]\nindex = 1\ncolour = 1\n", "unknown keys: channel.colour"},
-		"all disabled": {base + "[[channel]]\nindex = 1\nenabled = false\n", "no enabled channel"},
-		"index":        {base + "[[channel]]\nindex = 17\n", "index 17 out of range"},
-		"duplicate":    {base + "[[channel]]\nindex = 1\nlisten_ip = \"192.0.2.1\"\n[[channel]]\nindex = 1\n", "configured twice"},
-		"bad ip":       {base + "[[channel]]\nindex = 1\nlisten_ip = \"dvr.example.lan\"\n", "not an IP address"},
-		"port clash":   {base + "[[channel]]\nindex = 1\nlisten_ip = \"192.0.2.2\"\n[[channel]]\nindex = 2\nlisten_ip = \"192.0.2.2\"\n", "both listen on port 554"},
-		"rtsp=onvif":   {base + "[[channel]]\nindex = 1\nlisten_ip = \"192.0.2.1\"\nonvif_port = 554\n", "both listen on port 554"},
-		"path":         {base + "[[channel]]\nindex = 1\nrtsp_path = \"stream\"\n", "rtsp_path"},
-		"empty secret": {base + "[[channel]]\nindex = 1\npassword_file = \"empty\"\n", "is empty"},
-		"missing file": {strings.Replace(base, "dvr-pw", "nope", 1) + "[[channel]]\nindex = 1\n", "dvr.password_file"},
-		"no host":      {strings.Replace(base, `host = "dvr.example.lan"`, "", 1) + "[[channel]]\nindex = 1\n", "dvr.host is required"},
-		"syntax":       {"[dvr\n", "toml"},
+		"unknown key":   {base + "[[channel]]\nindex = 1\ncolour = 1\n", "unknown keys: channel.colour"},
+		"all disabled":  {base + "[[channel]]\nindex = 1\nenabled = false\n", "no enabled channel"},
+		"index":         {base + "[[channel]]\nindex = 17\n", "index 17 out of range"},
+		"duplicate":     {base + "[[channel]]\nindex = 1\nlisten_ip = \"192.0.2.1\"\n[[channel]]\nindex = 1\n", "configured twice"},
+		"bad ip":        {base + "[[channel]]\nindex = 1\nlisten_ip = \"dvr.example.lan\"\n", "not an IP address"},
+		"port clash":    {base + "[[channel]]\nindex = 1\nlisten_ip = \"192.0.2.2\"\n[[channel]]\nindex = 2\nlisten_ip = \"192.0.2.2\"\n", "both listen on port 554"},
+		"rtsp=onvif":    {base + "[[channel]]\nindex = 1\nlisten_ip = \"192.0.2.1\"\nonvif_port = 554\n", "both listen on port 554"},
+		"bad mac":       {base + "[[channel]]\nindex = 1\nmac = \"02:00:5e\"\n", "not a 6-byte MAC"},
+		"multicast mac": {base + "[[channel]]\nindex = 1\nmac = \"01:00:5e:00:00:01\"\n", "not a unicast"},
+		"same mac": {base + "[[channel]]\nindex = 1\nlisten_ip = \"192.0.2.1\"\nmac = \"02:00:5e:00:53:01\"\n" +
+			"[[channel]]\nindex = 2\nlisten_ip = \"192.0.2.2\"\nmac = \"02:00:5e:00:53:01\"\n", "both have mac"},
+		"mac in defaults": {base + "[defaults]\nmac = \"02:00:5e:00:53:01\"\n[[channel]]\nindex = 1\n", "unknown keys: defaults.mac"},
+		"path":            {base + "[[channel]]\nindex = 1\nrtsp_path = \"stream\"\n", "rtsp_path"},
+		"empty secret":    {base + "[[channel]]\nindex = 1\npassword_file = \"empty\"\n", "is empty"},
+		"missing file":    {strings.Replace(base, "dvr-pw", "nope", 1) + "[[channel]]\nindex = 1\n", "dvr.password_file"},
+		"no host":         {strings.Replace(base, `host = "dvr.example.lan"`, "", 1) + "[[channel]]\nindex = 1\n", "dvr.host is required"},
+		"syntax":          {"[dvr\n", "toml"},
 		"reconnect max": {strings.Replace(base, "[dvr]", "[dvr]\nreconnect_seconds = 20\nreconnect_max_seconds = 10", 1) + "[[channel]]\nindex = 1\n",
 			"reconnect_max_seconds 10"},
 		"cache":      {base + "[snapshot]\ncache_seconds = 0\n[[channel]]\nindex = 1\n", "snapshot.cache_seconds"},

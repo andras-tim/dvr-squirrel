@@ -262,6 +262,7 @@ func (b *bridge) startChannels(ccs []config.Channel) error {
 		}
 		started = append(started, c)
 	}
+	warnSharedMACs(started, b.log)
 	b.mu.Lock()
 	b.chans = append(b.chans, started...)
 	for _, c := range started {
@@ -291,6 +292,20 @@ func (b *bridge) startChannels(ccs []config.Channel) error {
 		})
 	}
 	return nil
+}
+
+// warnSharedMACs flags channels that report one MAC: NVRs that key cameras by MAC (UniFi Protect) see them as one.
+func warnSharedMACs(chs []*channel, log *slog.Logger) {
+	seen := map[string]int{}
+	for _, c := range chs {
+		mac := c.onvif.MAC().String()
+		if other, ok := seen[mac]; ok {
+			log.Warn("channels share a MAC address; NVRs that key cameras by MAC merge them, give each its own interface",
+				"channels", fmt.Sprintf("%d,%d", other, c.cfg.Index), "mac", mac)
+			continue
+		}
+		seen[mac] = c.cfg.Index
+	}
 }
 
 func (b *bridge) status() webui.Status {
@@ -335,8 +350,12 @@ func (b *bridge) startChannel(cc config.Channel, log *slog.Logger) (*channel, er
 	if model == "" {
 		model = b.defaultModel()
 	}
+	hw, macSource, err := channelMAC(cc)
+	if err != nil {
+		log.Warn("cannot read the MAC of the channel's interface, reporting one derived from the serial", "err", err)
+	}
 	dev := &onvif.Device{
-		Name: cc.Name, Model: model, Firmware: cc.Firmware, Serial: cc.Serial,
+		Name: cc.Name, Model: model, Firmware: cc.Firmware, Serial: cc.Serial, HwAddr: hw,
 		User: cc.User, Password: cc.Password,
 		IP: cc.ListenIP, ONVIFPort: cc.ONVIFPort, RTSPPort: cc.RTSPPort, RTSPPath: cc.RTSPPath,
 		Video: func() onvif.VideoInfo {
@@ -362,7 +381,8 @@ func (b *bridge) startChannel(cc config.Channel, log *slog.Logger) (*channel, er
 		rs.Close()
 		return nil, fmt.Errorf("onvif: %w", err)
 	}
-	log.Info("channel ready", "name", cc.Name, "model", model, "onvif", addr, "rtsp", rs.Addr()+cc.RTSPPath, "audio", cc.Audio)
+	log.Info("channel ready", "name", cc.Name, "model", model, "onvif", addr, "rtsp", rs.Addr()+cc.RTSPPath, "audio", cc.Audio,
+		"mac", dev.MAC().String(), "mac_source", macSource)
 	return &channel{
 		cfg: cc, rtsp: rs, onvif: dev, ln: ln,
 		http: &http.Server{Handler: mux, ReadHeaderTimeout: 10 * time.Second, ReadTimeout: 30 * time.Second},

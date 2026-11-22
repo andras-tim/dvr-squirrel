@@ -159,8 +159,16 @@ func printConfig(w io.Writer, cfg *config.Config) {
 		if model == "" {
 			model = "(detected from the DVR)"
 		}
-		fmt.Fprintf(w, "  channel %d %q enabled=%t model=%q onvif=%s rtsp=%s%s user=%q serial=%q\n",
+		mac, macSource, err := channelMAC(ch)
+		macText := "(" + macSource + ")"
+		if mac != nil {
+			macText = mac.String() + " (" + macSource + ")"
+		}
+		if err != nil {
+			macText += " [" + err.Error() + "]"
+		}
+		fmt.Fprintf(w, "  channel %d %q enabled=%t model=%q onvif=%s rtsp=%s%s user=%q serial=%q mac=%s\n",
 			ch.Index, ch.Name, ch.Enabled, model, config.ListenAddr(ch.ListenIP, ch.ONVIFPort),
-			config.ListenAddr(ch.ListenIP, ch.RTSPPort), ch.RTSPPath, ch.User, ch.Serial)
+			config.ListenAddr(ch.ListenIP, ch.RTSPPort), ch.RTSPPath, ch.User, ch.Serial, macText)
 	}
 }

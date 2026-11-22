@@ -40,6 +40,8 @@ type Device struct {
 	Model    string // initial model; SetModel replaces it
 	Firmware string
 	Serial   string
+	// HwAddr is the MAC of the channel's network interface; nil means one derived from the serial.
+	HwAddr net.HardwareAddr
 
 	// User and Password are required (WS-UsernameToken) for every action outside preAuth.
 	User     string
@@ -91,9 +93,13 @@ func (d *Device) EndpointUUID() string {
 	return "urn:uuid:" + uuid.NewSHA1(uuid.NameSpaceURL, []byte("dvr-onvif-bridge:"+d.Serial)).String()
 }
 
-// MAC is a stable, locally administered MAC address derived from the serial, reported by
-// GetNetworkInterfaces since there is no real interface per channel.
+// MAC is the address reported by GetNetworkInterfaces: HwAddr when set, else a stable, locally administered one
+// derived from the serial. NVRs such as UniFi Protect key an adopted camera by it, and a discovered one by the MAC of
+// its IP on the wire, so the two should match.
 func (d *Device) MAC() net.HardwareAddr {
+	if len(d.HwAddr) == 6 {
+		return d.HwAddr
+	}
 	sum := sha1.Sum([]byte(d.Serial))
 	mac := net.HardwareAddr(sum[:6])
 	mac[0] = mac[0]&0xfe | 0x02

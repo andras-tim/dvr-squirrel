@@ -47,7 +47,8 @@ func Write(w io.Writer, in Input) error {
 	p("# reconnect_seconds = 5\n# reconnect_max_seconds = 10\n# web_port = 80\n")
 	for i := 1; i <= in.Channels; i++ {
 		p("\n[[channel]]\nindex = %d\nname = %s\nmodel = %s\n", i, quote(fmt.Sprintf("CH%d", i)), quote(in.Model))
-		p("# listen_ip = \"\"                # its own address, as NVRs tell cameras apart by IP address\n")
+		p("# listen_ip = \"\"                # its own address on an interface of its own: NVRs key cameras by MAC\n")
+		p("# mac = \"\"                      # default: the MAC of the listen_ip's interface\n")
 		p("# enabled = true\n")
 	}
 	p("%s", rest)

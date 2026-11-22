@@ -15,7 +15,7 @@ channel as its own ONVIF Profile S device with an RTSP stream. NVRs with ONVIF a
 
 Status: early development. The protocol layer is tested against captured streams and the RTSP/ONVIF side against
 local clients (gortsplib, FFmpeg). In a live test UniFi Protect adopted all four channels of a 4-channel DVR, one
-address per channel.
+address and MAC (macvlan) per channel.
 
 ## Quick start
 
@@ -176,15 +176,17 @@ describes every key.
 - `[discovery]`: the WS-Discovery responder.
 - `[defaults]`: settings inherited by every channel; `[[channel]]` may override them: `enabled`, `audio`,
   `listen_ip`, `rtsp_port`, `rtsp_path`, `onvif_port`, `user`, `password_file`, `model`, `serial`, `firmware`,
-  `filler_image`, `filler_text`.
+  `filler_image`, `filler_text`. Only in `[[channel]]`: `index`, `name` and `mac`, the MAC reported to NVRs
+  (default: the MAC of the interface holding `listen_ip`).
 
 Authentication is always on: ONVIF takes WS-UsernameToken (digest or plain text), RTSP takes HTTP digest. The
 credentials default to the DVR login. File paths may contain `${VAR}`, e.g. `${CREDENTIALS_DIRECTORY}/dvr-password`
 for a systemd credential.
 
-Each channel gets an address of its own (an IP alias or a macvlan interface) with the ports 554 and 80, or the
-channels share the host's address with ports of their own: 8550+n and 8080+n for channel n (see
-[UniFi Protect](#unifi-protect)). Unknown keys, overlapping listeners and unreadable password files are errors.
+Each channel gets an address of its own with the ports 554 and 80, or the channels share the host's address with
+ports of their own: 8550+n and 8080+n for channel n. For NVRs that key cameras by MAC, such as UniFi Protect, each
+channel's address needs an interface of its own (see [UniFi Protect](#unifi-protect)). Unknown keys, overlapping
+listeners and unreadable password files are errors.
 
 ### Finding the DVR
 
@@ -204,8 +206,9 @@ Per enabled channel the bridge serves:
 
 - ONVIF at `http://<address>:<onvif_port>/onvif/device_service` (the media service shares the endpoint): one
   profile `main`, H.264 at the DVR's resolution. Without credentials only `GetSystemDateAndTime`,
-  `GetCapabilities` and `GetServices` answer. Each channel has a stable endpoint UUID and a locally administered MAC,
-  both derived from its serial.
+  `GetCapabilities` and `GetServices` answer. Each channel has a stable endpoint UUID derived from its serial.
+  `GetNetworkInterfaces` reports the channel's MAC: the configured `mac`, else the MAC of the interface holding
+  `listen_ip`, else a locally administered one derived from the serial; the log line "channel ready" shows which.
 - RTSP at `rtsp://<address>:<rtsp_port><rtsp_path>`, TCP (interleaved) transport only. A client joining mid-stream
   receives nothing until the next IDR frame (about 1.3 s), so its first picture decodes. With `audio = true` the
   stream also carries the DVR's AAC track.
@@ -270,8 +273,27 @@ Not implemented: RTP over UDP or multicast, PTZ, events, playback and the DVR's 
 
 Findings from adopting the channels as third-party ONVIF cameras:
 
-- Protect identifies a camera by its IP address: several ONVIF ports on one address are adopted as a single camera.
-  Give each channel its own `listen_ip` and keep the default ports.
+- Protect keys a camera by its MAC address: a discovered one by the MAC it resolves for the camera's address (ARP),
+  an adopted one by the `HwAddress` of `GetNetworkInterfaces`. Channels whose addresses share an interface show up
+  as one camera, and when the two MACs differ, Protect lists the adopted camera again as a new one on every
+  discovery. Give each channel its own `listen_ip` on an interface of its own, e.g. a macvlan with a fixed MAC, and
+  keep the default ports; the bridge then reports that interface's MAC. Example with systemd-networkd, one per
+  channel (the parent interface's `.network` also needs `MACVLAN=cam1`):
+
+  ```ini
+  # cam1.netdev
+  [NetDev]
+  Name=cam1
+  Kind=macvlan
+  MACAddress=02:00:5e:00:53:11
+
+  [MACVLAN]
+  Mode=bridge
+  ```
+
+  The host then has several interfaces in one subnet: answer ARP only on the interface holding the address
+  (`net.ipv4.conf.<if>.arp_ignore=1`, `arp_announce=2`) and send each address's replies out of its own interface
+  (a routing policy rule per source address), or the MAC on the wire is the wrong one again.
 - Protect requests the snapshot about once a minute and shows no preview image without it.
 - Protect names a camera "<manufacturer> <model>" from `GetDeviceInformation` and shows the WS-Discovery/GetScopes
   name scope in its model column. The bridge therefore reports the channel name as the manufacturer with an empty
