@@ -9,8 +9,9 @@ Wants=network-online.target
 After=network-online.target
 
 [Service]
-ExecStartPre=/usr/local/bin/dvr-squirrel --check-config
 ExecStart=/usr/local/bin/dvr-squirrel
+# No ExecStartPre=... --check-config: systemd 249 (Ubuntu 22.04) does not hand LoadCredential files to it, and the
+# daemon checks the config at start anyway.
 #Environment=DVR_HOST=dvr.example.lan DVR_USER=viewer
 Restart=on-failure
 # Where the embedded FFmpeg is extracted ($CACHE_DIRECTORY, /var/cache/dvr-squirrel).
@@ -33,7 +34,8 @@ PrivateDevices=yes
 ProtectKernelTunables=yes
 ProtectKernelModules=yes
 ProtectControlGroups=yes
-RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+# AF_NETLINK: the interface lookups of the discovery and of the channels' MAC addresses.
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX AF_NETLINK
 RestrictNamespaces=yes
 LockPersonality=yes
 MemoryDenyWriteExecute=yes
