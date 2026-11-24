@@ -10,7 +10,7 @@
 
 ARG BINARY_SOURCE=source
 
-FROM --platform=$BUILDPLATFORM golang:1.26-alpine3.23@sha256:23f198931d4bd83b4f5a613bd75656257ae8bf832dcbc2db80e1050b5219ca2a AS source-base
+FROM --platform=$BUILDPLATFORM golang:1.27-alpine3.23@sha256:f70850ef6ce341e8b6427f677049145d63c0b7ce002d4d7e3d464828b1b96dcd AS source-base
 ARG TARGETOS TARGETARCH VERSION=devel COMMIT DATE
 ENV CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH \
     LDFLAGS="-s -w -X main.version=$VERSION -X main.commit=$COMMIT -X main.date=$DATE"
@@ -43,6 +43,6 @@ USER 65534:65534
 ENTRYPOINT ["/dvr-squirrel"]
 
 # distroless rather than scratch: the embedded FFmpeg is extracted into the user's cache directory (or /tmp).
-FROM gcr.io/distroless/static-debian13:nonroot@sha256:aafe993665bf6200db38a02c11a9351e782a84b6a45e7f33b6695638c88e3931 AS full
+FROM gcr.io/distroless/static-debian13:nonroot@sha256:8ce6dd87e9823c5b48dcfb2c8604714ccb351ce59607327bcc4957448da279b5 AS full
 COPY --from=binary-full /dvr-squirrel /usr/local/bin/dvr-squirrel
 ENTRYPOINT ["/usr/local/bin/dvr-squirrel"]
