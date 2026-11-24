@@ -10,7 +10,7 @@ require (
 	github.com/bluenviron/mediacommon/v2 v2.10.0
 	github.com/google/uuid v1.6.0
 	github.com/pion/rtp v1.10.6
-	golang.org/x/net v0.62.0
+	golang.org/x/net v0.63.0
 	golang.org/x/sys v0.50.0
 )
 
